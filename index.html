@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI x Sân khấu: Bình chọn cho tác phẩm hay nhất!</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .heart { transition: transform 150ms ease; }
+    .heart:hover { transform: scale(1.08); }
+    .heart.active { transform: scale(1.15); }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-purple-700 via-indigo-600 to-blue-500 text-gray-900">
+  <header class="sticky top-0 z-50 bg-gradient-to-r from-purple-800 to-blue-700/90 backdrop-blur text-white shadow">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3 flex-wrap">
+        <img src="https://i.postimg.cc/XNcYryhf/Screenshot-2025-06-06-at-19-38-06-removebg-preview.png" alt="AI x Sân khấu" class="h-10 w-10 rounded-full" />
+        <h1 class="font-bold text-lg sm:text-xl md:text-2xl leading-snug whitespace-normal break-words">AI x Sân khấu: Bình chọn cho tác phẩm hay nhất!</h1>
+      </div>
+      <!-- nav removed by request -->
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-3 sm:px-4 pt-6 pb-28">
+    <div id="toast" class="hidden fixed top-20 left-1/2 -translate-x-1/2 bg-white/95 border border-green-300 text-gray-900 px-4 py-2 rounded-lg shadow-lg z-50"></div>
+
+    <section class="mb-4 text-white/90 text-sm">
+      Bạn có thể <strong>bình chọn cho nhiều bài</strong>. Nhấn tim, điền email và gửi phiếu bầu cho từng bài bạn thích.
+    </section>
+
+    <section id="grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"></section>
+
+    
+  </main>
+
+  <footer class="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-purple-800 to-blue-700 text-white text-sm py-3 text-center shadow">
+    © 2025 F-AI Club. All rights reserved.
+  </footer>
+
+  <script>
+    // ======== Config ========
+    const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xeozngky';
+    const PLACEHOLDER_EMBED = 'https://www.youtube.com/embed/xI_g6X11npg';
+    const THUMB_URL = 'https://i.postimg.cc/XNcYryhf/Screenshot-2025-06-06-at-19-38-06-removebg-preview.png';
+
+    const SONGS = [
+      { id: 1, name: 'Trần Hữu Nhân', title: 'CLB F-AI Là Tương Lai', video: 'https://www.youtube.com/embed/iy-azn1u8sg' },
+      { id: 2, name: 'Đào Huỳnh Lộc', title: 'Light Up My Code', video: 'https://www.youtube.com/embed/7uRrP0HmicQ' },
+      { id: 3, name: 'Bùi Đức Anh', title: 'F-AI CODE OF WAR', video: 'https://www.youtube.com/embed/Z9_NDqkJ4MY' },
+      { id: 4, name: 'Trương Anh Kiệt', title: 'Our AI Zone', video: 'https://www.youtube.com/embed/qbDbhyHofyo' },
+      { id: 5, name: 'Phạm Phan Công Lệnh', title: 'Sức mạnh tình bạn F-AI', video: 'https://www.youtube.com/embed/VG5KsX7tj-c' },
+      { id: 6, name: 'Lê Nhật Trường', title: 'Tinh Thần Mạch Sống Xanh', video: 'https://www.youtube.com/embed/wswHvHBoR0g' },
+    ];
+
+    // ======== State ========
+    // Opened forms (so you can open many at once)
+    const openIds = new Set();
+    // Per-song lock after a successful vote
+    const votedKey = id => `fai_voted_song_${id}`;
+    // Remember email between cards
+    let savedEmail = localStorage.getItem('fai_vote_email') || '';
+
+    // Clean up legacy single-vote key if it exists
+    localStorage.removeItem('fai_vote_song_id');
+
+    // ======== Helpers ========
+    function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstElementChild; }
+    function showToast(text, ok=true){
+      const toast = document.getElementById('toast');
+      toast.textContent = text;
+      toast.className = `fixed top-20 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg shadow-lg z-50 border ${ok ? 'bg-white/95 border-green-300' : 'bg-red-50 border-red-300'}`;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3200);
+    }
+    const isEmail = v => /[^\s@]+@[^\s@]+\.[^\s@]+/.test(v);
+
+    // ======== UI ========
+    function buildCard(song){
+      const locked = !!localStorage.getItem(votedKey(song.id));
+      const opened = openIds.has(song.id);
+
+      const card = el(`
+        <article class="group bg-white/95 rounded-xl shadow-lg p-4 sm:p-6 flex flex-col transition-all duration-300 hover:shadow-2xl">
+          <div class="w-full aspect-video rounded-lg overflow-hidden mb-3 sm:mb-4" style="background-image:url('${THUMB_URL}'); background-size:cover; background-position:center;">
+            <iframe class="w-full h-full" src="${song.video}?rel=0" title="Video của ${song.name}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+          </div>
+          <h2 class="text-lg sm:text-xl font-semibold text-purple-900 mb-1 text-center">${song.name}</h2>
+          <p class="text-xs sm:text-sm text-gray-600 mb-3 text-center">${song.title}</p>
+
+          <div class="mt-auto">
+            <div class="flex items-center justify-center gap-3 mb-2">
+              <button type="button" aria-label="Chọn bài này" data-heart class="heart text-2xl sm:text-3xl ${opened || locked ? 'active text-pink-500' : 'text-gray-400 hover:text-pink-500'} ${locked ? 'opacity-70' : ''}">${opened || locked ? '💖' : '🤍'}</button>
+              <span class="text-xs sm:text-sm text-gray-700" data-status>${ locked ? 'Bạn đã bình chọn cho bài này' : opened ? 'Nhập email để gửi' : 'Nhấn tim để chọn' }</span>
+            </div>
+
+            <form class="${opened && !locked ? '' : 'hidden'}" data-form novalidate>
+              <input type="hidden" name="competitor" value="${song.name}" />
+              <input type="hidden" name="song_title" value="${song.title}" />
+              <input type="text" name="_gotcha" style="display:none" tabindex="-1" autocomplete="off" />
+              <label class="block text-xs text-gray-600 mb-1" for="email-${song.id}">Email của bạn</label>
+              <input id="email-${song.id}" name="email" type="email" class="w-full p-2 border-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 border-transparent bg-white" placeholder="nhap@email.com" required value="${savedEmail}" />
+              <button type="submit" data-submit class="w-full mt-2 px-4 py-2 rounded-lg text-white text-sm font-semibold bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed">Gửi phiếu bầu</button>
+            </form>
+
+            ${ locked ? '<div class="mt-2 text-center text-xs text-green-700">Cảm ơn bạn đã bình chọn bài này! 🎉</div>' : '' }
+          </div>
+        </article>
+      `);
+
+      const heart = card.querySelector('[data-heart]');
+      const form = card.querySelector('[data-form]');
+      const submitBtn = form?.querySelector('[data-submit]');
+      const emailInput = form?.querySelector('input[name="email"]');
+
+      // Toggle open/close per-card (multi open allowed)
+      heart?.addEventListener('click', () => {
+        if (locked) { showToast('Bạn đã bình chọn cho bài này rồi.'); return; }
+        if (opened) openIds.delete(song.id); else openIds.add(song.id);
+        renderGrid();
+        // focus email when opening
+        if (!opened) requestAnimationFrame(() => document.getElementById(`email-${song.id}`)?.focus());
+      });
+
+      // Enable/disable submit based on email validity
+      if (emailInput && submitBtn){
+        const sync = () => submitBtn.disabled = !isEmail(emailInput.value);
+        sync();
+        emailInput.addEventListener('input', sync);
+      }
+
+      // Submit to Formspree
+      form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!emailInput || !isEmail(emailInput.value)) { showToast('Vui lòng nhập email hợp lệ', false); return; }
+        submitBtn.disabled = true;
+        const data = new FormData(form);
+        data.append('_subject', `Bình chọn cho ${song.name} — AI x Sân khấu`);
+        try {
+          const resp = await fetch(FORMSPREE_ENDPOINT, { method: 'POST', body: data, headers: { 'Accept': 'application/json' } });
+          if (resp.ok){
+            localStorage.setItem(votedKey(song.id), '1');
+            savedEmail = emailInput.value;
+            localStorage.setItem('fai_vote_email', savedEmail);
+            showToast('Đã ghi nhận phiếu cho: ' + song.name);
+            openIds.delete(song.id); // collapse this form
+            renderGrid();
+          } else {
+            let msg = 'Có lỗi khi gửi phiếu. Vui lòng thử lại.';
+            try { const j = await resp.json(); if (j && j.errors) msg = j.errors.map(e => e.message).join(', '); } catch {}
+            showToast(msg, false);
+            submitBtn.disabled = false;
+          }
+        } catch (err){
+          showToast('Không thể gửi. Kiểm tra mạng và thử lại.', false);
+          submitBtn.disabled = false;
+        }
+      });
+
+      return card;
+    }
+
+    function renderGrid(){
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      SONGS.forEach(s => grid.appendChild(buildCard(s)));
+    }
+
+        renderGrid();
+  </script>
+</body>
+</html>
